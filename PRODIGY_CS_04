@@ -1,0 +1,74 @@
+import keyboard
+import time
+from datetime import datetime
+import os
+
+class EthicalKeylogger:
+    def __init__(self):
+        self.log_file = "keystroke_log.txt"
+        self.start_time = None
+        self.consent_given = False
+        
+    def get_user_consent(self):
+        """Display a clear notice and get user consent"""
+        print("""
+        KEYLOGGER NOTICE:
+        This program will record all keyboard inputs and save them to a file.
+        
+        WARNING: 
+        - Using this without explicit permission is illegal
+        - All recorded data will be stored in plain text
+        - Do not use this to collect sensitive information
+        
+        Type 'I CONSENT' (all caps) to continue or anything else to exit: 
+        """)
+        consent = input()
+        self.consent_given = (consent == "I CONSENT")
+        return self.consent_given
+    
+    def on_key_event(self, event):
+        """Callback for key events"""
+        if not self.consent_given:
+            return
+            
+        with open(self.log_file, "a") as f:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Handle special keys
+            key = event.name
+            if len(key) > 1:
+                key = f"[{key.upper()}]"
+            
+            f.write(f"{timestamp} - {key}\n")
+    
+    def start(self):
+        """Start the keylogger with user consent"""
+        if not self.get_user_consent():
+            print("Consent not given. Exiting...")
+            return
+            
+        print(f"Keylogger started with consent. Logging to {self.log_file}")
+        print("Press [ESC] to stop logging...")
+        
+        self.start_time = time.time()
+        
+        # Setup keyboard hook
+        keyboard.hook(self.on_key_event)
+        
+        # Wait for ESC key to stop
+        keyboard.wait("esc")
+        
+        self.stop()
+    
+    def stop(self):
+        """Stop the keylogger and display summary"""
+        duration = time.time() - self.start_time
+        with open(self.log_file, "a") as f:
+            f.write(f"\nSession ended. Duration: {duration:.2f} seconds\n")
+        
+        print(f"\nLogging stopped. Session duration: {duration:.2f} seconds")
+        print(f"Keystrokes saved to {os.path.abspath(self.log_file)}")
+
+if __name__ == "__main__":
+    logger = EthicalKeylogger()
+    logger.start()
