@@ -1,0 +1,167 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
+from PIL import Image, ImageTk
+import numpy as np
+
+class ImageEncryptionApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Image Encryption Tool")
+        self.root.geometry("800x600")
+        
+        # Variables
+        self.original_image = None
+        self.processed_image = None
+        self.key = tk.IntVar(value=123)
+        
+        # Create GUI
+        self.create_widgets()
+        
+    def create_widgets(self):
+        # Frame for image display
+        self.image_frame = tk.Frame(self.root)
+        self.image_frame.pack(pady=10)
+        
+        # Original image label
+        self.original_label = tk.Label(self.image_frame, text="Original Image")
+        self.original_label.grid(row=0, column=0, padx=10)
+        
+        # Processed image label
+        self.processed_label = tk.Label(self.image_frame, text="Processed Image")
+        self.processed_label.grid(row=0, column=1, padx=10)
+        
+        # Image canvases
+        self.original_canvas = tk.Canvas(self.image_frame, width=350, height=350, bg='gray')
+        self.original_canvas.grid(row=1, column=0, padx=10)
+        
+        self.processed_canvas = tk.Canvas(self.image_frame, width=350, height=350, bg='gray')
+        self.processed_canvas.grid(row=1, column=1, padx=10)
+        
+        # Control frame
+        self.control_frame = tk.Frame(self.root)
+        self.control_frame.pack(pady=20)
+        
+        # Upload button
+        self.upload_btn = tk.Button(self.control_frame, text="Upload Image", command=self.upload_image)
+        self.upload_btn.grid(row=0, column=0, padx=10)
+        
+        # Key entry
+        tk.Label(self.control_frame, text="Encryption Key (1-255):").grid(row=0, column=1, padx=5)
+        self.key_entry = tk.Entry(self.control_frame, textvariable=self.key, width=5)
+        self.key_entry.grid(row=0, column=2, padx=5)
+        
+        # Encrypt button
+        self.encrypt_btn = tk.Button(self.control_frame, text="Encrypt", command=self.encrypt_image)
+        self.encrypt_btn.grid(row=0, column=3, padx=10)
+        
+        # Decrypt button
+        self.decrypt_btn = tk.Button(self.control_frame, text="Decrypt", command=self.decrypt_image)
+        self.decrypt_btn.grid(row=0, column=4, padx=10)
+        
+        # Save button
+        self.save_btn = tk.Button(self.control_frame, text="Save Processed Image", command=self.save_image)
+        self.save_btn.grid(row=0, column=5, padx=10)
+        
+    def upload_image(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
+        if file_path:
+            try:
+                self.original_image = Image.open(file_path)
+                self.display_image(self.original_image, self.original_canvas)
+                self.processed_image = None
+                self.clear_canvas(self.processed_canvas)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load image: {e}")
+    
+    def display_image(self, image, canvas):
+        canvas.delete("all")
+        # Resize image to fit canvas
+        img_width, img_height = image.size
+        ratio = min(350/img_width, 350/img_height)
+        new_size = (int(img_width*ratio), int(img_height*ratio))
+        resized_image = image.resize(new_size, Image.LANCZOS)
+        
+        # Convert to PhotoImage
+        self.tk_image = ImageTk.PhotoImage(resized_image)
+        
+        # Display on canvas
+        canvas.create_image(175, 175, anchor=tk.CENTER, image=self.tk_image)
+    
+    def clear_canvas(self, canvas):
+        canvas.delete("all")
+        canvas.create_text(175, 175, text="No Image", font=('Arial', 20))
+    
+    def encrypt_image(self):
+        if self.original_image is None:
+            messagebox.showwarning("Warning", "Please upload an image first!")
+            return
+        
+        try:
+            key = self.key.get()
+            if not 1 <= key <= 255:
+                messagebox.showwarning("Warning", "Key must be between 1-255!")
+                return
+            
+            # Convert to RGB if not already
+            img = self.original_image.convert('RGB')
+            pixels = np.array(img)
+            
+            # Encryption operations
+            encrypted = pixels ^ key  # XOR operation
+            encrypted = np.roll(encrypted, shift=1, axis=2)  # Channel swap
+            encrypted[1::2] = encrypted[1::2, ::-1]  # Reverse alternate rows
+            
+            self.processed_image = Image.fromarray(encrypted)
+            self.display_image(self.processed_image, self.processed_canvas)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Encryption failed: {e}")
+    
+    def decrypt_image(self):
+        if self.original_image is None:
+            messagebox.showwarning("Warning", "Please upload an image first!")
+            return
+        
+        try:
+            key = self.key.get()
+            if not 1 <= key <= 255:
+                messagebox.showwarning("Warning", "Key must be between 1-255!")
+                return
+            
+            # Convert to RGB if not already
+            img = self.original_image.convert('RGB')
+            pixels = np.array(img)
+            
+            # Decryption operations (reverse of encryption)
+            decrypted = pixels.copy()
+            decrypted[1::2] = decrypted[1::2, ::-1]  # Un-reverse alternate rows
+            decrypted = np.roll(decrypted, shift=-1, axis=2)  # Un-swap channels
+            decrypted = decrypted ^ key  # XOR operation
+            
+            self.processed_image = Image.fromarray(decrypted)
+            self.display_image(self.processed_image, self.processed_canvas)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Decryption failed: {e}")
+    
+    def save_image(self):
+        if self.processed_image is None:
+            messagebox.showwarning("Warning", "No processed image to save!")
+            return
+        
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("JPEG files", "*.jpg;*.jpeg")]
+        )
+        
+        if file_path:
+            try:
+                self.processed_image.save(file_path)
+                messagebox.showinfo("Success", "Image saved successfully!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save image: {e}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ImageEncryptionApp(root)
+    root.mainloop()
