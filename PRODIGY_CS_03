@@ -1,0 +1,196 @@
+import tkinter as tk
+from tkinter import messagebox
+import re
+
+class PasswordAnalyzerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Password Strength Analyzer")
+        self.root.geometry("600x400")
+        
+        # Variables
+        self.password = tk.StringVar()
+        self.strength = tk.StringVar(value="Not assessed")
+        self.score = tk.IntVar(value=0)
+        
+        # Color scheme
+        self.colors = {
+            "Weak": "#ff4444",
+            "Moderate": "#ffbb33",
+            "Strong": "#00C851",
+            "Very Strong": "#007E33",
+            "Not assessed": "#cccccc"
+        }
+        
+        # Create GUI
+        self.create_widgets()
+        
+    def create_widgets(self):
+        # Main frame
+        self.main_frame = tk.Frame(self.root, padx=20, pady=20)
+        self.main_frame.pack(expand=True, fill=tk.BOTH)
+        
+        # Title
+        tk.Label(self.main_frame, text="Password Strength Analyzer", 
+                font=("Arial", 16, "bold")).pack(pady=10)
+        
+        # Password entry
+        entry_frame = tk.Frame(self.main_frame)
+        entry_frame.pack(pady=10, fill=tk.X)
+        
+        tk.Label(entry_frame, text="Enter Password:").pack(side=tk.LEFT)
+        self.password_entry = tk.Entry(entry_frame, textvariable=self.password, 
+                                     show="*", width=30)
+        self.password_entry.pack(side=tk.LEFT, padx=10)
+        
+        # Show/hide password checkbox
+        self.show_password = tk.BooleanVar()
+        tk.Checkbutton(entry_frame, text="Show password", 
+                      variable=self.show_password,
+                      command=self.toggle_password_visibility).pack(side=tk.LEFT, padx=10)
+        
+        # Analyze button
+        tk.Button(self.main_frame, text="Analyze Password", 
+                 command=self.analyze_password).pack(pady=10)
+        
+        # Strength indicator
+        indicator_frame = tk.Frame(self.main_frame)
+        indicator_frame.pack(pady=20)
+        
+        tk.Label(indicator_frame, text="Strength:").pack(side=tk.LEFT)
+        self.strength_label = tk.Label(indicator_frame, textvariable=self.strength,
+                                      font=("Arial", 12, "bold"), width=12)
+        self.strength_label.pack(side=tk.LEFT, padx=10)
+        
+        # Score meter
+        meter_frame = tk.Frame(self.main_frame)
+        meter_frame.pack(fill=tk.X, pady=10)
+        
+        tk.Label(meter_frame, text="Score:").pack(side=tk.LEFT)
+        self.meter = tk.Canvas(meter_frame, height=20, width=300, bg="#eeeeee")
+        self.meter.pack(side=tk.LEFT, padx=10)
+        self.score_label = tk.Label(meter_frame, textvariable=self.score)
+        self.score_label.pack(side=tk.LEFT)
+        
+        # Criteria checklist
+        criteria_frame = tk.Frame(self.main_frame)
+        criteria_frame.pack(pady=20, fill=tk.X)
+        
+        tk.Label(criteria_frame, text="Password Requirements:", 
+               font=("Arial", 10, "bold")).pack(anchor=tk.W)
+        
+        self.length_var = tk.BooleanVar()
+        self.upper_var = tk.BooleanVar()
+        self.lower_var = tk.BooleanVar()
+        self.number_var = tk.BooleanVar()
+        self.special_var = tk.BooleanVar()
+        
+        tk.Checkbutton(criteria_frame, text="Minimum 8 characters", 
+                      variable=self.length_var, state="disabled").pack(anchor=tk.W)
+        tk.Checkbutton(criteria_frame, text="At least one uppercase letter", 
+                      variable=self.upper_var, state="disabled").pack(anchor=tk.W)
+        tk.Checkbutton(criteria_frame, text="At least one lowercase letter", 
+                      variable=self.lower_var, state="disabled").pack(anchor=tk.W)
+        tk.Checkbutton(criteria_frame, text="At least one number", 
+                      variable=self.number_var, state="disabled").pack(anchor=tk.W)
+        tk.Checkbutton(criteria_frame, text="At least one special character", 
+                      variable=self.special_var, state="disabled").pack(anchor=tk.W)
+        
+        # Bind password entry changes to update requirements in real-time
+        self.password.trace_add("write", self.update_requirements)
+        
+    def toggle_password_visibility(self):
+        if self.show_password.get():
+            self.password_entry.config(show="")
+        else:
+            self.password_entry.config(show="*")
+    
+    def update_requirements(self, *args):
+        """Update the requirement checkboxes in real-time as user types"""
+        password = self.password.get()
+        
+        # Update length requirement
+        self.length_var.set(len(password) >= 8)
+        
+        # Update uppercase requirement
+        self.upper_var.set(bool(re.search(r'[A-Z]', password)))
+        
+        # Update lowercase requirement
+        self.lower_var.set(bool(re.search(r'[a-z]', password)))
+        
+        # Update number requirement
+        self.number_var.set(bool(re.search(r'[0-9]', password)))
+        
+        # Update special character requirement
+        self.special_var.set(bool(re.search(r'[^A-Za-z0-9]', password)))
+    
+    def analyze_password(self):
+        """Only called when Analyze button is clicked"""
+        password = self.password.get()
+        if not password:
+            messagebox.showwarning("Warning", "Please enter a password first!")
+            return
+        
+        # Calculate score based on current requirements
+        score = 0
+        feedback = []
+        
+        if self.length_var.get():
+            score += 1
+        else:
+            feedback.append("Password should be at least 8 characters long")
+        
+        if self.upper_var.get():
+            score += 1
+        else:
+            feedback.append("Password should contain at least one uppercase letter")
+        
+        if self.lower_var.get():
+            score += 1
+        else:
+            feedback.append("Password should contain at least one lowercase letter")
+        
+        if self.number_var.get():
+            score += 1
+        else:
+            feedback.append("Password should contain at least one number")
+        
+        if self.special_var.get():
+            score += 1
+        else:
+            feedback.append("Password should contain at least one special character")
+        
+        # Additional points for length
+        if len(password) >= 12:
+            score += 1
+        if len(password) >= 16:
+            score += 1
+        
+        # Determine strength level
+        if score < 3:
+            strength = "Weak"
+        elif score < 5:
+            strength = "Moderate"
+        elif score < 7:
+            strength = "Strong"
+        else:
+            strength = "Very Strong"
+        
+        # Update display
+        self.score.set(score)
+        self.strength.set(strength)
+        self.strength_label.config(fg=self.colors[strength])
+        
+        # Update meter
+        self.meter.delete("all")
+        width = 300 * (score / 7)  # Max score is 7
+        self.meter.create_rectangle(0, 0, width, 20, fill=self.colors[strength], outline="")
+        
+        # Show feedback only when button is clicked and password is weak
+        if score < 4 and feedback:
+            messagebox.showinfo("Password Feedback", "\n".join(feedback))
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = PasswordAnalyzerApp(root)
+    root.mainloop()
